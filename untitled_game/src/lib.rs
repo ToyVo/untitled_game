@@ -2,7 +2,6 @@ mod crs;
 pub use crs::*;
 pub mod menu;
 pub mod cameras;
-pub mod splash;
 pub mod game;
 
 use bevy::prelude::*;

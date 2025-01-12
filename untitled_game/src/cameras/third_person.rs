@@ -29,8 +29,6 @@ pub struct OrbitCamera {
 
 impl Default for OrbitCamera {
     fn default() -> Self {
-        // Limiting pitch stops some unexpected rotation past 90° up or down.
-        let pitch_limit = FRAC_PI_2 - 0.1;
         Self {
             friction: 0.1,
             key_down: KeyCode::KeyS,
@@ -40,8 +38,9 @@ impl Default for OrbitCamera {
             key_up: KeyCode::KeyW,
             key_run: KeyCode::ShiftLeft,
             mouse_interact: MouseButton::Left,
-            orbit_distance: 20.0,
-            pitch_range: -pitch_limit..pitch_limit,
+            orbit_distance: 10.0,
+            // Limiting pitch stops some unexpected rotation
+            pitch_range: -(FRAC_PI_2 - FRAC_1_PI)..(FRAC_1_PI),
             pitch_speed: 0.003,
             run_speed: 15.0,
             walk_speed: 5.0,
@@ -124,10 +123,12 @@ fn orbit(
     );
     let yaw = yaw - delta_yaw;
     camera.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
+    
+    let target = player.translation + Vec3::new(0., 1., 0.1);
 
     // Adjust the translation to maintain the correct orientation toward the orbit target.
     // In our example it's a static target, but this could easily be customized.
-    camera.translation = player.translation - camera.forward() * controller.orbit_distance;
+    camera.translation = target - camera.forward() * controller.orbit_distance;
 }
 
 pub struct OrbitCameraPlugin;

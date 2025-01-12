@@ -2,13 +2,8 @@ use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 use bevy::render::render_resource::{TextureViewDescriptor, TextureViewDimension};
 use untitled_game::cameras::third_person;
-use untitled_game::{game, menu, splash, Cubemap, DisplayQuality, GameState, Volume};
+use untitled_game::{game, menu, Cubemap, DisplayQuality, GameState, Volume};
 
-// fn main() {
-//     App::new()
-//         // .add_plugins(camera_controller::CameraControllerPlugin)
-//         .run();
-// }
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -29,8 +24,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, asset_loaded)
         // Adds the plugins for each state
-        .add_plugins(third_person::OrbitCameraPlugin)
-        .add_plugins((splash::splash_plugin, menu::menu_plugin, game::game_plugin))
+        .add_plugins((menu::menu_plugin, game::game_plugin, third_person::OrbitCameraPlugin))
         .run();
 }
 
