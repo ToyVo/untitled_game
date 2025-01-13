@@ -191,6 +191,8 @@ fn main_menu_setup(mut commands: Commands, game_state: Res<State<GameState>>) {
                                 TextColor(TEXT_COLOR),
                             ));
                         });
+                    
+                    #[cfg(not(target_family = "wasm"))]
                     parent
                         .spawn((
                             Button,

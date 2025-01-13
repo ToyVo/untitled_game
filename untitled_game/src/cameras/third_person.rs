@@ -1,14 +1,15 @@
-use std::f32::consts::*;
-use std::ops::Range;
+use crate::menu::MenuState;
+use crate::{despawn_screen, Player};
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
-use crate::{Player};
-use crate::menu::MenuState;
+use std::f32::consts::*;
+use std::ops::Range;
+use crate::cameras::OnCameraUI;
 
 #[derive(Debug, Component)]
 #[require(Transform)]
-pub struct OrbitCamera {
+pub struct CameraController {
     pub orbit_distance: f32,
     pub pitch_speed: f32,
     // Clamp pitch to this range
@@ -27,7 +28,7 @@ pub struct OrbitCamera {
     pub key_run: KeyCode,
 }
 
-impl Default for OrbitCamera {
+impl Default for CameraController {
     fn default() -> Self {
         Self {
             friction: 0.1,
@@ -50,8 +51,8 @@ impl Default for OrbitCamera {
     }
 }
 
-fn orbit(
-    query: Single<(&mut Transform, &mut OrbitCamera), (With<Camera>, Without<Player>)>,
+fn camera_controller_update(
+    query: Single<(&mut Transform, &mut CameraController), (With<Camera>, Without<Player>)>,
     accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
     time: Res<Time>,
     key_input: Res<ButtonInput<KeyCode>>,
@@ -117,13 +118,11 @@ fn orbit(
     let (yaw, pitch, roll) = camera.rotation.to_euler(EulerRot::YXZ);
 
     // Establish the new yaw and pitch, preventing the pitch value from exceeding our limits.
-    let pitch = (pitch + delta_pitch).clamp(
-        controller.pitch_range.start,
-        controller.pitch_range.end,
-    );
+    let pitch =
+        (pitch + delta_pitch).clamp(controller.pitch_range.start, controller.pitch_range.end);
     let yaw = yaw - delta_yaw;
     camera.rotation = Quat::from_euler(EulerRot::YXZ, yaw, pitch, roll);
-    
+
     let target = player.translation + Vec3::new(0., 1., 0.1);
 
     // Adjust the translation to maintain the correct orientation toward the orbit target.
@@ -131,10 +130,29 @@ fn orbit(
     camera.translation = target - camera.forward() * controller.orbit_distance;
 }
 
-pub struct OrbitCameraPlugin;
+fn camera_controller_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands
+        .spawn((Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+            OnCameraUI
+        ))
+        .with_child((ImageNode::new(asset_server.load("reticle.png")),));
+}
 
-impl Plugin for OrbitCameraPlugin {
+pub struct CameraControllerPlugin;
+
+impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, orbit.run_if(in_state(MenuState::Disabled)));
+        app.add_systems(OnEnter(MenuState::Disabled), camera_controller_setup)
+            .add_systems(OnExit(MenuState::Disabled), despawn_screen::<OnCameraUI>)
+            .add_systems(
+                Update,
+                camera_controller_update.run_if(in_state(MenuState::Disabled)),
+            );
     }
 }

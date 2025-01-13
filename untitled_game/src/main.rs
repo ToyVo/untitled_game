@@ -8,6 +8,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
+                title: String::from("Untitled_game"),
                 // fill the entire browser window
                 fit_canvas_to_parent: true,
                 // don't hijack keyboard shortcuts like F5, F6, F12, Ctrl+R etc.
@@ -24,7 +25,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, asset_loaded)
         // Adds the plugins for each state
-        .add_plugins((menu::menu_plugin, game::game_plugin, third_person::OrbitCameraPlugin))
+        .add_plugins((menu::menu_plugin, game::game_plugin, third_person::CameraControllerPlugin))
         .run();
 }
 
@@ -40,8 +41,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Name::new("Camera"),
         Camera3d::default(),
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        third_person::OrbitCamera::default(),
-        // camera_controller::CameraController::default(),
+        third_person::CameraController::default(),
+        // first_person::CameraController::default(),
         Skybox {
             image: skybox,
             brightness: 1000.,
