@@ -1,11 +1,13 @@
+use crate::cameras::{OnCameraUIInteract, OnCameraUIReticle};
 use crate::menu::MenuState;
 use crate::{despawn_screen, Player};
+use crate::{pause_physics, unpause_physics};
+use avian3d::prelude::*;
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 use bevy::window::CursorGrabMode;
 use std::f32::consts::*;
 use std::ops::Range;
-use crate::cameras::OnCameraUI;
 
 #[derive(Debug, Component)]
 #[require(Transform)]
@@ -20,6 +22,7 @@ pub struct CameraController {
     pub key_up: KeyCode,
     pub key_down: KeyCode,
     pub key_pause: KeyCode,
+    pub key_interact: KeyCode,
     pub mouse_interact: MouseButton,
     pub walk_speed: f32,
     pub run_speed: f32,
@@ -38,10 +41,11 @@ impl Default for CameraController {
             key_right: KeyCode::KeyD,
             key_up: KeyCode::KeyW,
             key_run: KeyCode::ShiftLeft,
+            key_interact: KeyCode::KeyE,
             mouse_interact: MouseButton::Left,
             orbit_distance: 10.0,
             // Limiting pitch stops some unexpected rotation
-            pitch_range: -(FRAC_PI_2 - FRAC_1_PI)..(FRAC_1_PI),
+            pitch_range: -(FRAC_PI_2 - FRAC_1_PI)..FRAC_1_PI,
             pitch_speed: 0.003,
             run_speed: 15.0,
             walk_speed: 5.0,
@@ -132,27 +136,101 @@ fn camera_controller_update(
 
 fn camera_controller_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
-        .spawn((Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            ..default()
-        },
-            OnCameraUI
+        .spawn((
+            Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            OnCameraUIReticle,
         ))
         .with_child((ImageNode::new(asset_server.load("reticle.png")),));
 }
 
 pub struct CameraControllerPlugin;
 
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+pub enum CameraUIState {
+    Visible,
+    #[default]
+    Hidden,
+}
+
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(MenuState::Disabled), camera_controller_setup)
-            .add_systems(OnExit(MenuState::Disabled), despawn_screen::<OnCameraUI>)
+        app.init_state::<CameraUIState>()
+            .add_systems(
+                OnEnter(MenuState::Disabled),
+                (camera_controller_setup, unpause_physics),
+            )
+            .add_systems(
+                OnExit(MenuState::Disabled),
+                (despawn_screen::<OnCameraUIReticle>, pause_physics, hide_ui),
+            )
+            .add_systems(OnEnter(CameraUIState::Visible), interaction_display_setup)
+            .add_systems(
+                OnExit(CameraUIState::Visible),
+                despawn_screen::<OnCameraUIInteract>,
+            )
             .add_systems(
                 Update,
-                camera_controller_update.run_if(in_state(MenuState::Disabled)),
+                (camera_controller_update, print_hits).run_if(in_state(MenuState::Disabled)),
             );
     }
+}
+
+fn print_hits(
+    camera: Single<(&mut Transform, &CameraController), With<Camera3d>>,
+    key_input: Res<ButtonInput<KeyCode>>,
+    mut camera_ui_state: ResMut<NextState<CameraUIState>>,
+    spatial_query: SpatialQuery,
+    mut commands: Commands,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let (camera_transform, camera_controller) = camera.into_inner();
+    // Ray origin and direction
+    let origin = camera_transform.translation;
+    let direction = camera_transform.forward();
+
+    // Configuration for the ray cast
+    let max_distance = 100.0;
+    let solid = true;
+    let filter = SpatialQueryFilter::default();
+
+    // Cast ray and print first hit
+    if let Some(first_hit) = spatial_query.cast_ray(origin, direction, max_distance, solid, &filter)
+    {
+        camera_ui_state.set(CameraUIState::Visible);
+        if key_input.just_pressed(camera_controller.key_interact) {
+            commands
+                .entity(first_hit.entity)
+                .insert(MeshMaterial3d(materials.add(Color::srgb_u8(0, 0, 0))));
+        }
+    } else {
+        camera_ui_state.set(CameraUIState::Hidden);
+    }
+}
+
+fn interaction_display_setup(mut commands: Commands, camera_controller: Single<&CameraController>) {
+    commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                align_items: AlignItems::End,
+                justify_content: JustifyContent::End,
+                ..default()
+            },
+            OnCameraUIInteract,
+        ))
+        .with_child(Text::new(format!(
+            "Press {:?} to Interact",
+            camera_controller.key_interact
+        )));
+}
+
+fn hide_ui(mut camera_ui_state: ResMut<NextState<CameraUIState>>) {
+    camera_ui_state.set(CameraUIState::Hidden);
 }

@@ -1,3 +1,4 @@
+use avian3d::prelude::*;
 use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 use bevy::render::render_resource::{TextureViewDescriptor, TextureViewDimension};
@@ -5,8 +6,10 @@ use untitled_game::cameras::third_person;
 use untitled_game::{game, menu, Cubemap, DisplayQuality, GameState, Volume};
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
+    let mut app = App::new();
+
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: String::from("Untitled_game"),
                 // fill the entire browser window
@@ -16,16 +19,27 @@ fn main() {
                 ..default()
             }),
             ..default()
-        }))
-        // Insert as resource the initial value for the settings resources
-        .insert_resource(DisplayQuality::Medium)
+        }),
+        PhysicsPlugins::default(),
+    ));
+
+    #[cfg(debug_assertions)]
+    // show vertices normals
+    app.add_plugins(PhysicsDebugPlugin::default());
+
+    // Insert as resource the initial value for the settings resources
+    app.insert_resource(DisplayQuality::Medium)
         .insert_resource(Volume(7))
         // Declare the game state, whose starting value is determined by the `Default` trait
         .init_state::<GameState>()
         .add_systems(Startup, setup)
         .add_systems(Update, asset_loaded)
         // Adds the plugins for each state
-        .add_plugins((menu::menu_plugin, game::game_plugin, third_person::CameraControllerPlugin))
+        .add_plugins((
+            menu::menu_plugin,
+            game::game_plugin,
+            third_person::CameraControllerPlugin,
+        ))
         .run();
 }
 
@@ -42,7 +56,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Camera3d::default(),
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
         third_person::CameraController::default(),
-        // first_person::CameraController::default(),
         Skybox {
             image: skybox,
             brightness: 1000.,

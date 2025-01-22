@@ -4,4 +4,7 @@ pub mod first_person;
 pub mod third_person;
 
 #[derive(Component)]
-pub struct OnCameraUI;
+pub struct OnCameraUIReticle;
+
+#[derive(Component)]
+pub struct OnCameraUIInteract;

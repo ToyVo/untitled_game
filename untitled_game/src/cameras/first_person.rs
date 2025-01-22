@@ -127,13 +127,13 @@ fn run_camera_controller(
         window.cursor_options.visible = false;
         controller.enabled = true;
     }
-    
+
     if key_input.pressed(controller.key_pause) {
         window.cursor_options.grab_mode = CursorGrabMode::None;
         window.cursor_options.visible = true;
         controller.enabled = false;
     }
-    
+
     if !controller.enabled {
         return;
     }
@@ -189,7 +189,6 @@ fn run_camera_controller(
     transform.translation += controller.velocity.x * dt * right
         + controller.velocity.y * dt * Vec3::Y
         + controller.velocity.z * dt * forward;
-
 
     // Handle mouse input
     if accumulated_mouse_motion.delta != Vec2::ZERO {

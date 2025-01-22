@@ -23,7 +23,8 @@ pub fn menu_plugin(app: &mut App) {
         .add_systems(OnEnter(MenuState::Settings), settings_menu_setup)
         .add_systems(
             Update,
-            (setting_button::<Volume>, setting_button::<DisplayQuality>).run_if(in_state(MenuState::Settings)),
+            (setting_button::<Volume>, setting_button::<DisplayQuality>)
+                .run_if(in_state(MenuState::Settings)),
         )
         .add_systems(
             OnExit(MenuState::Settings),
@@ -191,7 +192,7 @@ fn main_menu_setup(mut commands: Commands, game_state: Res<State<GameState>>) {
                                 TextColor(TEXT_COLOR),
                             ));
                         });
-                    
+
                     #[cfg(not(target_family = "wasm"))]
                     parent
                         .spawn((
