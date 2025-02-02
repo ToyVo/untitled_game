@@ -3,7 +3,7 @@ use bevy::core_pipeline::Skybox;
 use bevy::prelude::*;
 use bevy::render::render_resource::{TextureViewDescriptor, TextureViewDimension};
 use untitled_game::cameras::third_person;
-use untitled_game::{game, menu, Cubemap, DisplayQuality, GameState, Volume};
+use untitled_game::{game, menu, Cubemap, DisplayQuality, GameState, PlayerState, Volume};
 
 fn main() {
     let mut app = App::new();
@@ -32,6 +32,7 @@ fn main() {
         .insert_resource(Volume(7))
         // Declare the game state, whose starting value is determined by the `Default` trait
         .init_state::<GameState>()
+        .init_state::<PlayerState>()
         .add_systems(Startup, setup)
         .add_systems(Update, asset_loaded)
         // Adds the plugins for each state

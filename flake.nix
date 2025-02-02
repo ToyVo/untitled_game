@@ -79,10 +79,10 @@
             );
             untitled_game =
               let
-                cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+                cargoToml = builtins.fromTOML (builtins.readFile ./untitled_game/Cargo.toml);
                 rev = toString (self.shortRev or self.dirtyShortRev or self.lastModified or "unknown");
               in
-              pkgs.rustPlatform.buildRustPackage {
+              pkgs.rustPlatform.buildRustPackage rec {
                 pname = cargoToml.package.name;
                 version = "${cargoToml.package.version}-${rev}";
                 src = ./.;
@@ -103,12 +103,27 @@
                     libiconv
                     pkg-config
                   ]
-                  ++ lib.optionals pkgs.stdenv.isDarwin [
-                    pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+                  ++ lib.optionals stdenv.isDarwin [
+                    darwin.apple_sdk.frameworks.SystemConfiguration
+                  ] ++ lib.optionals stdenv.isLinux [
+                    alsa-lib.dev
+                    udev.dev 
+                    xorg.libX11
+                    xorg.libXrandr
+                    xorg.libXcursor
+                    xorg.libxcb
+                    xorg.libXi
+                    wayland
+                    libxkbcommon
+                    libxkbcommon.dev
+                    vulkan-loader
+                    vulkan-tools
+                    glfw
+                    xorg.xf86videoamdgpu
                   ];
                 buildPhase = ''
-                  just build_client_untitled_game
-                  just build_client_untitled_game_wasm
+                  just build_untitled_game
+                  just build_untitled_game_wasm
                 '';
                 installPhase = ''
                   mkdir -p $out/bin
@@ -116,18 +131,35 @@
                 '';
                 meta.mainProgram = "untitled_game";
                 cargoLock.lockFile = ./Cargo.lock;
+                LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
               };
             default = untitled_game;
           };
           overlayAttrs = {
             inherit (self'.packages) untitled_game;
           };
-          devShells.default = pkgs.mkShell {
+          devShells.default = pkgs.mkShell rec {
             shellHook = ''
               export RUST_SRC_PATH=${pkgs.rustPlatform.rustLibSrc}
+              export LD_LIBRARY_PATH=${lib.makeLibraryPath buildInputs}
             '';
-            buildInputs = lib.optionals pkgs.stdenv.isDarwin [
-              pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            buildInputs = with pkgs; lib.optionals stdenv.isDarwin [
+              darwin.apple_sdk.frameworks.SystemConfiguration
+            ] ++ lib.optionals stdenv.isLinux [
+              alsa-lib.dev
+              udev.dev 
+              xorg.libX11
+              xorg.libXrandr
+              xorg.libXcursor
+              xorg.libxcb
+              xorg.libXi
+              wayland
+              libxkbcommon
+              libxkbcommon.dev
+              vulkan-loader
+              vulkan-tools
+              glfw
+              xorg.xf86videoamdgpu
             ];
             nativeBuildInputs = with pkgs; [
               self'.packages.rustToolchain

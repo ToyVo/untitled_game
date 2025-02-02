@@ -14,6 +14,13 @@ pub struct Cubemap {
 pub struct Player;
 
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
+pub enum PlayerState {
+    #[default]
+    None,
+    Id(Entity),
+}
+
+#[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
 pub enum GameState {
     #[default]
     Menu,

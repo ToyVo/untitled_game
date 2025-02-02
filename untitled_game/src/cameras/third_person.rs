@@ -1,6 +1,6 @@
 use crate::cameras::{OnCameraUIInteract, OnCameraUIReticle};
 use crate::menu::MenuState;
-use crate::{despawn_screen, Player};
+use crate::{despawn_screen, Player, PlayerState};
 use crate::{pause_physics, unpause_physics};
 use avian3d::prelude::*;
 use bevy::input::mouse::AccumulatedMouseMotion;
@@ -188,6 +188,7 @@ fn print_hits(
     spatial_query: SpatialQuery,
     mut commands: Commands,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    player_state: Res<State<PlayerState>>,
 ) {
     let (camera_transform, camera_controller) = camera.into_inner();
     // Ray origin and direction
@@ -202,11 +203,19 @@ fn print_hits(
     // Cast ray and print first hit
     if let Some(first_hit) = spatial_query.cast_ray(origin, direction, max_distance, solid, &filter)
     {
-        camera_ui_state.set(CameraUIState::Visible);
-        if key_input.just_pressed(camera_controller.key_interact) {
-            commands
-                .entity(first_hit.entity)
-                .insert(MeshMaterial3d(materials.add(Color::srgb_u8(0, 0, 0))));
+        if let PlayerState::Id(player) = player_state.clone() {
+            if first_hit.entity != player {
+                camera_ui_state.set(CameraUIState::Visible);
+                if key_input.just_pressed(camera_controller.key_interact) {
+                    commands
+                        .entity(first_hit.entity)
+                        .insert(MeshMaterial3d(materials.add(Color::srgb_u8(0, 0, 0))));
+                }
+            } else {
+                camera_ui_state.set(CameraUIState::Hidden);
+            }
+        } else {
+            camera_ui_state.set(CameraUIState::Hidden);
         }
     } else {
         camera_ui_state.set(CameraUIState::Hidden);

@@ -1,5 +1,5 @@
 use crate::menu::MenuState;
-use crate::{despawn_screen, BCollider, BMeshExtra, GameState, Player};
+use crate::{despawn_screen, BCollider, BMeshExtra, GameState, Player, PlayerState};
 use avian3d::prelude::*;
 use bevy::gltf::GltfMeshExtras;
 use bevy::prelude::*;
@@ -26,18 +26,22 @@ fn game_setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    mut player_state: ResMut<NextState<PlayerState>>,
 ) {
     // Player
-    commands.spawn((
-        Name::new("Player"),
-        RigidBody::Dynamic,
-        Collider::cylinder(0.3, 1.),
-        Mesh3d(meshes.add(Cylinder::new(0.3, 1.))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(255, 144, 124))),
-        Transform::from_xyz(5.0, 0.5, 3.0),
-        Player,
-        OnGameScreen,
-    ));
+    let player_id = commands
+        .spawn((
+            Name::new("Player"),
+            RigidBody::Dynamic,
+            Collider::cylinder(0.3, 1.),
+            Mesh3d(meshes.add(Cylinder::new(0.3, 1.))),
+            MeshMaterial3d(materials.add(Color::srgb_u8(255, 144, 124))),
+            Transform::from_xyz(5.0, 0.5, 3.0),
+            Player,
+            OnGameScreen,
+        ))
+        .id();
+    player_state.set(PlayerState::Id(player_id));
     // light
     commands.spawn((
         Name::new("Light"),
