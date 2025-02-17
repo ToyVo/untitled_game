@@ -1,9 +1,10 @@
 use bevy::prelude::*;
 use rand::prelude::*;
 use std::f32::consts::FRAC_PI_2;
+use bevy::window::WindowResolution;
 
 const DIM: usize = 16;
-const TILE_SIZE: f32 = 50.;
+const TILE_SIZE: f32 = 56.;
 
 #[derive(Component)]
 struct Collapsed;
@@ -34,6 +35,20 @@ impl Tile {
         }
     }
 
+    pub fn rotate(&self, n: usize) -> Self {
+        let mut edges = self.edges.clone();
+        edges.rotate_right(n);
+        Self {
+            image: self.image.clone(),
+            rotation: self.rotation + n,
+            edges,
+            up: Vec::new(),
+            right: Vec::new(),
+            down: Vec::new(),
+            left: Vec::new(),
+        }
+    }
+
     pub fn analyze(&mut self, tiles: &[Tile]) {
         for (i, tile) in tiles.iter().enumerate() {
             // Check if the current tile's bottom edge matches this tile's top edge
@@ -54,20 +69,6 @@ impl Tile {
             }
         }
     }
-
-    pub fn rotate(&self, n: usize) -> Self {
-        let mut edges = self.edges.clone();
-        edges.rotate_right(n);
-        Self {
-            image: self.image.clone(),
-            rotation: self.rotation + n,
-            edges,
-            up: Vec::new(),
-            right: Vec::new(),
-            down: Vec::new(),
-            left: Vec::new(),
-        }
-    }
 }
 
 #[derive(Component)]
@@ -84,7 +85,17 @@ struct TileConfig {
 fn main() {
     App::new()
         .insert_resource(TileConfig { tiles: Vec::new() })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                resolution: WindowResolution::new(TILE_SIZE * DIM as f32, TILE_SIZE * DIM as f32),
+                // fill the entire browser window
+                fit_canvas_to_parent: true,
+                // don't hijack keyboard shortcuts like F5, F6, F12, Ctrl+R etc.
+                prevent_default_event_handling: false,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, spawn_tiles)
         .add_systems(Update, analyze_tiles)
         .run();
@@ -94,36 +105,178 @@ fn spawn_tiles(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut tiles: ResMut<TileConfig>,
+    window: Single<&Window>,
 ) {
-    commands.spawn(Camera2d);
-
+    commands.spawn((Camera2d, Transform::from_xyz(window.resolution.height() / 2., window.resolution.height() / 2., 10.)));
+    
     let mut init_tiles = vec![];
-    let up = Tile::new(
-        asset_server.load("up.png"),
+
+    // Initialize tiles with images and edges
+    init_tiles.push(Tile::new(
+        asset_server.load("circuit/0.png"),
         vec![
-            String::from("wbw"),
-            String::from("wbw"),
-            String::from("www"),
-            String::from("wbw"),
+            String::from("AAA"),
+            String::from("AAA"),
+            String::from("AAA"),
+            String::from("AAA"),
+        ],
+    ));
+    init_tiles.push(Tile::new(
+        asset_server.load("circuit/1.png"),
+        vec![
+            String::from("BBB"),
+            String::from("BBB"),
+            String::from("BBB"),
+            String::from("BBB"),
+        ],
+    ));
+    let tile = Tile::new(
+        asset_server.load("circuit/2.png"),
+        vec![
+            String::from("BBB"),
+            String::from("BCB"),
+            String::from("BBB"),
+            String::from("BBB"),
         ],
     );
-    for i in 0..4 {
-        init_tiles.push(up.rotate(i));
+    for i in 1..4 {
+        init_tiles.push(tile.rotate(i));
     }
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/3.png"),
+        vec![
+            String::from("BBB"),
+            String::from("BDB"),
+            String::from("BBB"),
+            String::from("BDB"),
+        ],
+    );
+    init_tiles.push(tile.rotate(1));
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/4.png"),
+        vec![
+            String::from("ABB"),
+            String::from("BCB"),
+            String::from("BBA"),
+            String::from("AAA"),
+        ],
+    );
+    for i in 1..4 {
+        init_tiles.push(tile.rotate(i));
+    }
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/5.png"),
+        vec![
+            String::from("ABB"),
+            String::from("BBB"),
+            String::from("BBB"),
+            String::from("BBA"),
+        ],
+    );
+    for i in 1..4 {
+        init_tiles.push(tile.rotate(i));
+    }
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/6.png"),
+        vec![
+            String::from("BBB"),
+            String::from("BCB"),
+            String::from("BBB"),
+            String::from("BCB"),
+        ],
+    );
+    init_tiles.push(tile.rotate(1));
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/7.png"),
+        vec![
+            String::from("BDB"),
+            String::from("BCB"),
+            String::from("BDB"),
+            String::from("BCB"),
+        ],
+    );
+    init_tiles.push(tile.rotate(1));
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/8.png"),
+        vec![
+            String::from("BDB"),
+            String::from("BBB"),
+            String::from("BCB"),
+            String::from("BBB"),
+        ],
+    );
+    for i in 1..4 {
+        init_tiles.push(tile.rotate(i));
+    }
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/9.png"),
+        vec![
+            String::from("BCB"),
+            String::from("BCB"),
+            String::from("BBB"),
+            String::from("BCB"),
+        ],
+    );
+    for i in 1..4 {
+        init_tiles.push(tile.rotate(i));
+    }
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/10.png"),
+        vec![
+            String::from("BCB"),
+            String::from("BCB"),
+            String::from("BCB"),
+            String::from("BCB"),
+        ],
+    );
+    init_tiles.push(tile.rotate(1));
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/11.png"),
+        vec![
+            String::from("BCB"),
+            String::from("BCB"),
+            String::from("BBB"),
+            String::from("BBB"),
+        ],
+    );
+    for i in 1..4 {
+        init_tiles.push(tile.rotate(i));
+    }
+    init_tiles.push(tile);
+    let tile = Tile::new(
+        asset_server.load("circuit/12.png"),
+        vec![
+            String::from("BBB"),
+            String::from("BCB"),
+            String::from("BBB"),
+            String::from("BCB"),
+        ],
+    );
+    init_tiles.push(tile.rotate(1));
+    init_tiles.push(tile);
+
+    // TODO: deduplicate based on edges
     let init_tiles_ref = &init_tiles.clone();
     for tile in &mut init_tiles {
         tile.analyze(init_tiles_ref)
     }
     tiles.tiles = init_tiles;
 
-    let offset = DIM as f32 * TILE_SIZE / 2.;
     for x in 0..DIM {
         for y in 0..DIM {
             commands.spawn((
-                Sprite::from_image(asset_server.load("blank.png")),
                 Transform::from_xyz(
-                    x as f32 * TILE_SIZE - offset,
-                    y as f32 * TILE_SIZE - offset,
+                    x as f32 * TILE_SIZE + TILE_SIZE / 2.,
+                    y as f32 * TILE_SIZE + TILE_SIZE / 2.,
                     0.,
                 ),
                 Cell {
@@ -136,11 +289,10 @@ fn spawn_tiles(
 }
 
 fn analyze_tiles(
-    mut query: Query<(&mut Sprite, &mut Transform, &mut Cell, Entity), Without<Collapsed>>,
-    mut collapsed: Query<(&mut Sprite, &mut Transform, &mut Cell, Entity), With<Collapsed>>,
+    mut query: Query<(&mut Transform, &mut Cell, Entity), Without<Collapsed>>,
+    mut collapsed: Query<(&mut Transform, &mut Cell, Entity), With<Collapsed>>,
     mut commands: Commands,
     tiles: Res<TileConfig>,
-    asset_server: Res<AssetServer>,
 ) {
     if query.is_empty() {
         return;
@@ -148,7 +300,7 @@ fn analyze_tiles(
 
     let mut sorted = query
         .iter()
-        .map(|(_, _, cell, entity)| (entity, cell.options.len(), cell.coord))
+        .map(|(_, cell, entity)| (entity, cell.options.len(), cell.coord))
         .collect::<Vec<(Entity, usize, (usize, usize))>>();
     sorted.sort_by(|a, b| a.1.cmp(&b.1));
     let end_index = if let Some((i, _)) = sorted
@@ -164,18 +316,16 @@ fn analyze_tiles(
     let chosen_index = thread_rng().gen_range(0..end_index);
     let (entity, _, coords) = sorted[chosen_index];
 
-    let (mut sprite, mut transform, mut cell, entity) = query.get_mut(entity).unwrap();
+    let (mut transform, mut cell, entity) = query.get_mut(entity).unwrap();
 
     if cell.options.is_empty() {
-        let blank = asset_server.load("blank.png");
-        for (_, _, mut cell, _) in &mut query {
+        for (_, mut cell, _) in &mut query {
             cell.options = (0..tiles.tiles.len()).collect();
         }
-        for (mut sprite, mut transform, mut cell, entity) in &mut collapsed {
+        for (mut transform, mut cell, entity) in &mut collapsed {
             cell.options = (0..tiles.tiles.len()).collect();
-            commands.entity(entity).remove::<Collapsed>();
+            commands.entity(entity).remove::<Collapsed>().remove::<Sprite>();
             transform.rotation = Quat::from_rotation_z(0.);
-            sprite.image = blank.clone();
         }
         return;
     }
@@ -185,13 +335,15 @@ fn analyze_tiles(
 
     // Mark as collapsed
     cell.options = vec![tile_index];
-    sprite.image = tile.image.clone();
     transform.rotate_local_z(-FRAC_PI_2 * tile.rotation as f32);
-    commands.entity(entity).insert(Collapsed);
+    commands.entity(entity).insert((
+        Collapsed,
+        Sprite::from_image(tile.image.clone()),
+    ));
 
     // check neighboring cells
     let [up, right, down, left] = get_neighbors(coords.0, coords.1, DIM - 1, DIM - 1);
-    for (_, _, mut cell, _) in &mut query {
+    for (_, mut cell, _) in &mut query {
         if cell.coord == up {
             cell.options = tile
                 .up
