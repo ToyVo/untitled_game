@@ -1,80 +1,21 @@
 use bevy::prelude::*;
+use bevy::window::WindowResolution;
 use rand::prelude::*;
 use std::f32::consts::FRAC_PI_2;
-use bevy::window::WindowResolution;
 
-const DIM: usize = 16;
+use wave::*;
+
+const DIM: usize = 30;
 const TILE_SIZE: f32 = 56.;
 
 #[derive(Component)]
 struct Collapsed;
 
-#[derive(Clone)]
-struct Tile {
-    pub image: Handle<Image>,
-    /// 0-3 scaled by 90 degrees
-    pub rotation: usize,
-    pub edges: Vec<String>,
-    /// represents valid indices into tiles array
-    pub up: Vec<usize>,
-    pub left: Vec<usize>,
-    pub down: Vec<usize>,
-    pub right: Vec<usize>,
-}
-
-impl Tile {
-    pub fn new(image: Handle<Image>, edges: Vec<String>) -> Self {
-        Self {
-            image,
-            rotation: 0,
-            edges,
-            up: Vec::new(),
-            right: Vec::new(),
-            down: Vec::new(),
-            left: Vec::new(),
-        }
-    }
-
-    pub fn rotate(&self, n: usize) -> Self {
-        let mut edges = self.edges.clone();
-        edges.rotate_right(n);
-        Self {
-            image: self.image.clone(),
-            rotation: self.rotation + n,
-            edges,
-            up: Vec::new(),
-            right: Vec::new(),
-            down: Vec::new(),
-            left: Vec::new(),
-        }
-    }
-
-    pub fn analyze(&mut self, tiles: &[Tile]) {
-        for (i, tile) in tiles.iter().enumerate() {
-            // Check if the current tile's bottom edge matches this tile's top edge
-            if tile.edges[2].chars().rev().collect::<String>() == self.edges[0] {
-                self.up.push(i);
-            }
-            // Check if the current tile's left edge matches this tile's right edge
-            if tile.edges[3].chars().rev().collect::<String>() == self.edges[1] {
-                self.right.push(i);
-            }
-            // Check if the current tile's top edge matches this tile's bottom edge
-            if tile.edges[0].chars().rev().collect::<String>() == self.edges[2] {
-                self.down.push(i);
-            }
-            // Check if the current tile's right edge matches this tile's left edge
-            if tile.edges[1].chars().rev().collect::<String>() == self.edges[3] {
-                self.left.push(i);
-            }
-        }
-    }
-}
-
 #[derive(Component)]
 struct Cell {
     pub options: Vec<usize>,
-    pub coord: (usize, usize),
+    pub coord: SnappedCoordinate,
+    pub collapsed: bool,
 }
 
 #[derive(Resource)]
@@ -87,7 +28,7 @@ fn main() {
         .insert_resource(TileConfig { tiles: Vec::new() })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                resolution: WindowResolution::new(TILE_SIZE * DIM as f32, TILE_SIZE * DIM as f32),
+                resolution: WindowResolution::new(TILE_SIZE * DIM as f32 / 5., TILE_SIZE * DIM as f32 / 5.),
                 // fill the entire browser window
                 fit_canvas_to_parent: true,
                 // don't hijack keyboard shortcuts like F5, F6, F12, Ctrl+R etc.
@@ -96,19 +37,12 @@ fn main() {
             }),
             ..default()
         }))
-        .add_systems(Startup, spawn_tiles)
+        .add_systems(Startup, (preload_tiles, spawn_cells).chain())
         .add_systems(Update, analyze_tiles)
         .run();
 }
 
-fn spawn_tiles(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut tiles: ResMut<TileConfig>,
-    window: Single<&Window>,
-) {
-    commands.spawn((Camera2d, Transform::from_xyz(window.resolution.height() / 2., window.resolution.height() / 2., 10.)));
-    
+fn preload_tiles(asset_server: Res<AssetServer>, mut tiles: ResMut<TileConfig>) {
     let mut init_tiles = vec![];
 
     // Initialize tiles with images and edges
@@ -267,9 +201,23 @@ fn spawn_tiles(
     // TODO: deduplicate based on edges
     let init_tiles_ref = &init_tiles.clone();
     for tile in &mut init_tiles {
-        tile.analyze(init_tiles_ref)
+        tile.generate_relationships(init_tiles_ref)
     }
     tiles.tiles = init_tiles;
+}
+
+fn spawn_cells(mut commands: Commands, tiles: Res<TileConfig>, window: Single<&Window>) {
+    let mut projection = OrthographicProjection::default_2d();
+    projection.scale = 5.;
+    commands.spawn((
+        Camera2d,
+        projection,
+        Transform::from_xyz(
+            window.resolution.height() / 2. * 5.,
+            window.resolution.height() / 2. * 5.,
+            10.,
+        ),
+    ));
 
     for x in 0..DIM {
         for y in 0..DIM {
@@ -281,7 +229,8 @@ fn spawn_tiles(
                 ),
                 Cell {
                     options: (0..tiles.tiles.len()).collect(),
-                    coord: (x, y),
+                    coord: SnappedCoordinate { x, y },
+                    collapsed: false,
                 },
             ));
         }
@@ -301,7 +250,7 @@ fn analyze_tiles(
     let mut sorted = query
         .iter()
         .map(|(_, cell, entity)| (entity, cell.options.len(), cell.coord))
-        .collect::<Vec<(Entity, usize, (usize, usize))>>();
+        .collect::<Vec<(Entity, usize, SnappedCoordinate)>>();
     sorted.sort_by(|a, b| a.1.cmp(&b.1));
     let end_index = if let Some((i, _)) = sorted
         .iter()
@@ -324,7 +273,11 @@ fn analyze_tiles(
         }
         for (mut transform, mut cell, entity) in &mut collapsed {
             cell.options = (0..tiles.tiles.len()).collect();
-            commands.entity(entity).remove::<Collapsed>().remove::<Sprite>();
+            cell.collapsed = false;
+            commands
+                .entity(entity)
+                .remove::<Collapsed>()
+                .remove::<Sprite>();
             transform.rotation = Quat::from_rotation_z(0.);
         }
         return;
@@ -335,71 +288,30 @@ fn analyze_tiles(
 
     // Mark as collapsed
     cell.options = vec![tile_index];
+    cell.collapsed = true;
     transform.rotate_local_z(-FRAC_PI_2 * tile.rotation as f32);
-    commands.entity(entity).insert((
-        Collapsed,
-        Sprite::from_image(tile.image.clone()),
-    ));
+    commands
+        .entity(entity)
+        .insert((Collapsed, Sprite::from_image(tile.image.clone())));
 
     // check neighboring cells
-    let [up, right, down, left] = get_neighbors(coords.0, coords.1, DIM - 1, DIM - 1);
+    let neighbors = get_neighbors_no_wrap(coords.x, coords.y, DIM - 1, DIM - 1);
     for (_, mut cell, _) in &mut query {
-        if cell.coord == up {
-            cell.options = tile
-                .up
-                .iter()
-                .filter_map(|opt| {
-                    if cell.options.contains(opt) {
-                        Some(*opt)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-        } else if cell.coord == right {
-            cell.options = tile
-                .right
-                .iter()
-                .filter_map(|opt| {
-                    if cell.options.contains(opt) {
-                        Some(*opt)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-        } else if cell.coord == down {
-            cell.options = tile
-                .down
-                .iter()
-                .filter_map(|opt| {
-                    if cell.options.contains(opt) {
-                        Some(*opt)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-        } else if cell.coord == left {
-            cell.options = tile
-                .left
-                .iter()
-                .filter_map(|opt| {
-                    if cell.options.contains(opt) {
-                        Some(*opt)
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+        let cb = |option| {
+            if cell.options.contains(option) {
+                Some(*option)
+            } else {
+                None
+            }
+        };
+        if Some(cell.coord) == neighbors.up {
+            cell.options = tile.up.iter().filter_map(cb).collect();
+        } else if Some(cell.coord) == neighbors.right {
+            cell.options = tile.right.iter().filter_map(cb).collect();
+        } else if Some(cell.coord) == neighbors.down {
+            cell.options = tile.down.iter().filter_map(cb).collect();
+        } else if Some(cell.coord) == neighbors.left {
+            cell.options = tile.left.iter().filter_map(cb).collect();
         }
     }
-}
-
-fn get_neighbors(x: usize, y: usize, x_max: usize, y_max: usize) -> [(usize, usize); 4] {
-    let x_sub = if x == 0 { x_max } else { x - 1 };
-    let y_sub = if y == 0 { y_max } else { y - 1 };
-    let x_add = if x == x_max { 0 } else { x + 1 };
-    let y_add = if y == y_max { 0 } else { y + 1 };
-    [(x, y_add), (x_add, y), (x, y_sub), (x_sub, y)]
 }
